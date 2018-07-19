@@ -32,18 +32,24 @@ function claymore_install() {
   local claymore_download_url="$(curl url --silent "https://api.github.com/repos/nanopool/Claymore-Dual-Miner/releases/latest" | jq '.assets[0].browser_download_url')"
   local claymore_download_pkg="$(basename $claymore_download_url)"
 
+  # create directories
   mkdir -p /tmp/claymore
   mkdir -p $CLAYMORE_DIRECTORY
-  wget -O "/tmp/claymore/$claymore_download_pkg" $claymore_download_url
+
+  # download and unzip pacakge
+  wget -O "/tmp/claymore" $claymore_download_url
   tar -xvzf "/tmp/claymore/$claymore_download_pkg" -C /tmp/claymore
 
+  # copy files
   for f in /tmp/claymore/*; do
     if [[ -d $f ]]; then
       cp "/tmp/claymore/$f/*.bin" $CLAYMORE_DIRECTORY
+      cp "/tmp/claymore/$f/*.bin2" $CLAYMORE_DIRECTORY
       cp "/tmp/claymore/$f/ethdcrminer64" $CLAYMORE_DIRECTORY
     fi
   done
 
+  # cleanup
   rm -rf /tmp/claymore
 }
 
