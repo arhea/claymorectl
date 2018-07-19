@@ -1,0 +1,115 @@
+#!/bin/bash -e
+
+CLAYMORE_DIRECTORY=/etc/claymore
+CLAYMORE_SERVICE_NAME="claymore.service"
+CLAYMORE_USER_GROUP=claymore
+
+function claymore_init() {
+  # create user
+  sudo useradd $CLAYMORE_USER_GROUP
+
+  # create group
+  sudo groupadd $CLAYMORE_USER_GROUP
+
+  # add user to group
+  sudo usermod -a -G $CLAYMORE_USER_GROUP $CLAYMORE_USER_GROUP
+
+  # add current user to group
+  sudo usermod -a -G $CLAYMORE_USER_GROUP $USER
+
+  # create directory
+  mkdir -p $CLAYMORE_DIRECTORY
+
+  # service
+  sudo cp ./configs/claymore.service /etc/systemd/system/$CLAYMORE_SERVICE_NAME
+  sudo cp ./configs/claymore.sh $CLAYMORE_DIRECTORY
+}
+
+function claymore_install() {
+  local claymore_download_url="$(curl url --silent "https://api.github.com/repos/nanopool/Claymore-Dual-Miner/releases/latest" | jq '.assets[0].browser_download_url')"
+  local claymore_download_pkg="$(basename $claymore_download_url)"
+
+  mkdir -p /tmp/claymore
+  mkdir -p $CLAYMORE_DIRECTORY
+  wget -O "/tmp/claymore/$claymore_download_pkg" $claymore_download_url
+  tar -xvzf "/tmp/claymore/$claymore_download_pkg" -C /tmp/claymore
+
+  for f in /tmp/claymore/*; do
+    if [[ -d $f ]]; then
+      cp "/tmp/claymore/$f/*.bin" $CLAYMORE_DIRECTORY
+      cp "/tmp/claymore/$f/ethdcrminer64" $CLAYMORE_DIRECTORY
+    fi
+  done
+
+  rm -rf /tmp/claymore
+}
+
+function claymore_permissions() {
+  chown -R $CLAYMORE_USER_GROUP:$CLAYMORE_USER_GROUP $CLAYMORE_DIRECTORY
+  chmod +x $CLAYMORE_DIRECTORY/ethdcrminer64
+  chmod +x $CLAYMORE_DIRECTORY/claymore.sh
+}
+
+function claymore_config() {
+  local claymore_wallet=$1
+  local claymore_pool=$2
+
+  # create directory
+  mkdir -p $CLAYMORE_DIRECTORY
+
+  # write configuration
+  echo $claymore_wallet > $CLAYMORE_DIRECTORY/wallet.txt
+  echo $claymore_pool > $CLAYMORE_DIRECTORY/pool.txt
+}
+
+function claymore_start() {
+  sudo systemctl start $CLAYMORE_SERVICE_NAME
+  sudo systemctl enable $CLAYMORE_SERVICE_NAME
+}
+
+function claymore_stop() {
+  sudo systemctl stop $CLAYMORE_SERVICE_NAME
+  sudo systemctl disable $CLAYMORE_SERVICE_NAME
+}
+
+function claymore_tail() {
+  sudo journalctl -u claymore -f
+}
+
+function console_log() {
+  echo -e "\033[1;34m=> $1\033[0m"
+}
+
+function console_success() {
+  echo -e "\033[0;32m=> $1\033[0m"
+}
+
+function console_error() {
+  echo -e "\033[0;31m=> $1\033[0m"
+}
+
+if [ "$1" = "install" ]; then
+  claymore_init
+  claymore_permissions
+  claymore_install
+  claymore_permissions
+  claymore_config $2 $3
+  claymore_permissions
+elif [ "$1" = "update" ]; then
+  claymore_install
+  claymore_permissions
+elif [ "$1" = "config" ]; then
+  claymore_stop
+  claymore_config $2 $3
+  claymore_permissions
+  claymore_start
+elif [ "$1" = "start" ]; then
+  claymore_start
+elif [ "$1" = "stop" ]; then
+  claymore_stop
+elif [ "$1" = "tail" ]; then
+  claymore_tail
+else
+  console_error "Command Not Found"
+  exit 1
+fi

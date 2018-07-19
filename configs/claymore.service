@@ -1,0 +1,14 @@
+[Unit]
+Description=Claymore Ethereum Mining Service
+After=network.target
+
+[Service]
+Type=simple
+User=claymore
+Group=claymore
+WorkingDirectory=/etc/claymore
+ExecStart=/etc/claymore/claymore.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
