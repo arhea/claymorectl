@@ -21,7 +21,7 @@ function claymore_init() {
   mkdir -p $CLAYMORE_DIRECTORY
 
   # service
-  sudo cp ./configs/claymore.service /etc/systemd/system/$CLAYMORE_SERVICE_NAME
+  sudo cp ./configs/$CLAYMORE_SERVICE_NAME /etc/systemd/system
   sudo cp ./configs/claymore.sh $CLAYMORE_DIRECTORY
 }
 
