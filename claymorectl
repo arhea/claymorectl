@@ -5,6 +5,9 @@ CLAYMORE_SERVICE_NAME="claymore.service"
 CLAYMORE_USER_GROUP=claymore
 
 function claymore_init() {
+  # install deps
+  sudo apt-get install -y curl wget jq ccze
+
   # create user
   sudo useradd $CLAYMORE_USER_GROUP
 
@@ -45,9 +48,10 @@ function claymore_install() {
 }
 
 function claymore_permissions() {
-  chown -R $CLAYMORE_USER_GROUP:$CLAYMORE_USER_GROUP $CLAYMORE_DIRECTORY
-  chmod +x $CLAYMORE_DIRECTORY/ethdcrminer64
-  chmod +x $CLAYMORE_DIRECTORY/claymore.sh
+  sudo chown -R $CLAYMORE_USER_GROUP:$CLAYMORE_USER_GROUP $CLAYMORE_DIRECTORY
+  sudo chmod -R g+rw $CLAYMORE_DIRECTORY
+  sudo chmod g+x $CLAYMORE_DIRECTORY/ethdcrminer64
+  sudo chmod g+x $CLAYMORE_DIRECTORY/claymore.sh
 }
 
 function claymore_config() {
