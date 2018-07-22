@@ -1,59 +1,75 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 
-CLAYMORE_DIRECTORY=/etc/claymore
+CLAYMORE_DIRECTORY="/etc/claymore"
 CLAYMORE_SERVICE_NAME="claymore.service"
 CLAYMORE_USER_GROUP=claymore
 
 function claymore_init() {
   # install deps
-  sudo apt-get install -y curl wget jq ccze
+  console_log "Installing dependencies (curl, wget, jq)..."
+  sudo apt-get install -y curl wget jq
 
   # create user
+  console_log "Creating the Claymore user..."
   sudo useradd $CLAYMORE_USER_GROUP
 
   # create group
+  console_log "Creating the Claymore group..."
   sudo groupadd $CLAYMORE_USER_GROUP
 
   # add user to group
+  console_log "Adding the Claymore user the Claymore group..."
   sudo usermod -a -G $CLAYMORE_USER_GROUP $CLAYMORE_USER_GROUP
 
   # add current user to group
+  console_log "Adding the current user the Claymore group..."
   sudo usermod -a -G $CLAYMORE_USER_GROUP $USER
 
   # create directory
+  console_log "Creating the Claymore destination directory..."
   mkdir -p $CLAYMORE_DIRECTORY
 
   # service
+  console_log "Copying configuration files to their destinations..."
   sudo cp ./configs/$CLAYMORE_SERVICE_NAME /etc/systemd/system
   sudo cp ./configs/claymore.sh $CLAYMORE_DIRECTORY
 }
 
 function claymore_install() {
-  local claymore_download_url="$(curl url --silent "https://api.github.com/repos/nanopool/Claymore-Dual-Miner/releases/latest" | jq '.assets[0].browser_download_url')"
+  local tmp_dir="/tmp/claymore"
+  local staging_dir="./staging"
+  local github_url="https://api.github.com/repos/nanopool/Claymore-Dual-Miner/releases/latest"
+  local claymore_download_url="$(curl --silent $github_url | jq -r '.assets[0].browser_download_url')"
   local claymore_download_pkg="$(basename $claymore_download_url)"
 
   # create directories
-  mkdir -p /tmp/claymore
+  mkdir -p $tmp_dir
   mkdir -p $CLAYMORE_DIRECTORY
 
   # download and unzip pacakge
-  wget -O "/tmp/claymore" $claymore_download_url
-  tar -xvzf "/tmp/claymore/$claymore_download_pkg" -C /tmp/claymore
+  console_log "Downloading the latest Claymore miner..."
+  pushd $tmp_dir
+  wget $claymore_download_url
+  tar zxvf "$claymore_download_pkg"
 
   # copy files
-  for f in /tmp/claymore/*; do
-    if [[ -d $f ]]; then
-      cp "/tmp/claymore/$f/*.bin" $CLAYMORE_DIRECTORY
-      cp "/tmp/claymore/$f/*.bin2" $CLAYMORE_DIRECTORY
-      cp "/tmp/claymore/$f/ethdcrminer64" $CLAYMORE_DIRECTORY
-    fi
+  console_log "Copying Claymore files to the claymore directory.."
+  for path in ./*/; do
+    mv -i "${path//"\\\\'"/_}" "./staging/"
+    cp "./staging/*.bin" $CLAYMORE_DIRECTORY
+    cp "./staging/*.bin2" $CLAYMORE_DIRECTORY
+    cp "./staging/ethdcrminer64" $CLAYMORE_DIRECTORY
+    rm -rf "./staging"
   done
+  popd
 
   # cleanup
-  rm -rf /tmp/claymore
+  console_log "Cleaning up the install process..."
+  rm -rf $tmp_dir
 }
 
 function claymore_permissions() {
+  console_log "Syncing permissions..."
   sudo chown -R $CLAYMORE_USER_GROUP:$CLAYMORE_USER_GROUP $CLAYMORE_DIRECTORY
   sudo chmod -R g+rw $CLAYMORE_DIRECTORY
   sudo chmod g+x $CLAYMORE_DIRECTORY/ethdcrminer64
@@ -68,17 +84,24 @@ function claymore_config() {
   mkdir -p $CLAYMORE_DIRECTORY
 
   # write configuration
+  console_log "Writing configuration files to disk..."
   echo $claymore_wallet > $CLAYMORE_DIRECTORY/wallet.txt
   echo $claymore_pool > $CLAYMORE_DIRECTORY/pool.txt
 }
 
 function claymore_start() {
+  console_log "Starting the service..."
   sudo systemctl start $CLAYMORE_SERVICE_NAME
+
+  console_log "Enabling the service to start on boot..."
   sudo systemctl enable $CLAYMORE_SERVICE_NAME
 }
 
 function claymore_stop() {
+  console_log "Stopping the service..."
   sudo systemctl stop $CLAYMORE_SERVICE_NAME
+
+  console_log "Disabiling the service from starting on boot..."
   sudo systemctl disable $CLAYMORE_SERVICE_NAME
 }
 
